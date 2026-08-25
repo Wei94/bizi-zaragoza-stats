@@ -209,7 +209,7 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                 df_mapa = pd.DataFrame(mapa_data)
                 
                 # Renderizado compatible con Plotly en servidor
-                fig_map = px.scatter_mapbox(
+                fig_map = px.scatter_map(
                     df_mapa,
                     lat='lat',
                     lon='lon',
@@ -223,7 +223,7 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                 )
                 
                 fig_map.update_layout(
-                    mapbox_style="open-street-map",  # Estilo 100% libre sin token de Mapbox
+                    map_style="open-street-map",
                     margin={"r": 0, "t": 0, "l": 0, "b": 0},
                     showlegend=False
                 )
@@ -387,7 +387,7 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
     # Creación de una columna explícita de tamaño evitando valores <= 0
     df_latest['marker_size'] = df_latest[col_var].apply(lambda x: max(int(x), 3))
     
-    fig_global = px.scatter_mapbox(
+    fig_global = px.scatter_map(
         df_latest,
         lat='latitude',
         lon='longitude',
@@ -402,9 +402,8 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
         title=f"Distribución global de {modo_mapa.lower()} en Zaragoza"
     )
     
-    # Cambio a estilo open-street-map sin necesidad de token de Mapbox
     fig_global.update_layout(
-        mapbox_style="open-street-map",
+        map_style="open-street-map",
         margin={"r": 0, "t": 0, "l": 0, "b": 0}
     )
     
