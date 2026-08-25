@@ -8,8 +8,8 @@ API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/equi
 CSV_PATH = "output/bizi-stats.csv"
 
 def fetch_and_append():
-    headers = {"Accept": "application/json"}
-    response = requests.get(API_URL, headers=headers, timeout=15)
+    headers = {"Accept": "application/geo+json"}
+    response = requests.get(API_URL, headers=headers, timeout=30)
     
     if response.status_code != 200:
         print(f"Error al consultar la API: {response.status_code}")
