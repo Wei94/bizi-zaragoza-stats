@@ -1,9 +1,8 @@
 name: Bizi Zaragoza Ingestion
 
 on:
-  schedule:
-    # Se ejecuta cada 15 minutos entre las 06:00 y las 23:00 UTC
-    - cron: '*/10 * * * *'
+  repository_dispatch:
+    types: [trigger-ingest]
   workflow_dispatch: # Permite ejecutarlo manualmente desde la web de GitHub
 
 jobs:
