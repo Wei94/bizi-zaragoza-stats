@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 # URL de la API de Bizi Zaragoza
-API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/equipamiento/estacion-bicicleta.json?srsname=wgs84"
+API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/estacion-bicicleta?rf=markdown&srsname=wgs84&rows=300"
 CSV_PATH = "output/bizi-stats.csv"
 
 def fetch_and_append():
