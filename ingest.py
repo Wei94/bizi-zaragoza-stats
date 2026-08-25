@@ -7,6 +7,20 @@ from datetime import datetime
 API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/estacion-bicicleta?rf=markdown&srsname=wgs84&rows=300"
 CSV_PATH = "output/bizi-stats.csv"
 
+def get_session_with_retries():
+    """Crea una sesión de requests con 3 reintentos automáticos."""
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=2,  # Espera 2s, 4s, 8s entre reintentos
+        status_forcelist=[500, 502, 503, 504],
+        raise_on_status=False
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+    
 def fetch_and_append():
     headers = {
         "Accept": "application/geo+json",
