@@ -8,40 +8,56 @@ API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/esta
 CSV_PATH = "output/bizi-stats.csv"
 
 def fetch_and_append():
-    headers = {"Accept": "application/geo+json"}
-    response = requests.get(API_URL, headers=headers, timeout=30)
+    headers = {
+        "Accept": "application/geo+json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) BiziStatsBot/1.0"
+    }
     
-    if response.status_code != 200:
-        print(f"Error al consultar la API: {response.status_code}")
+    session = get_session_with_retries()
+    
+    try:
+        response = session.get(API_URL, headers=headers, timeout=45)
+        
+        if response.status_code != 200:
+            print(f"Error al consultar la API: Código HTTP {response.status_code}")
+            return
+
+        data = response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"La API de Zaragoza no respondió a tiempo: {e}")
         return
 
-    data = response.json()
-    features = data.get("result", [])
+    # Extraer la lista de estaciones desde 'features' (GeoJSON estándar)
+    features = data.get("features", [])
+    if not features:
+        print("La API respondió pero 'features' está vacío.")
+        return
     
     now = datetime.utcnow()
-    timestamp = now.strftime("%Y-%m-%d handT%H:%M:%SZ").replace(" hand", "")
+    timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     time_slot = now.strftime("%H:%M")
-    day_of_week = now.isoweekday() # 1 = Lunes, 7 = Domingo
+    day_of_week = now.isoweekday()
 
     rows = []
     for item in features:
-        # Extracción compatible con la estructura de Zaragoza
-        props = item if "title" in item else item.get("properties", {})
-        coords = item.get("geometry", {}).get("coordinates", ["", ""]) if "geometry" in item else ["", ""]
+        props = item.get("properties", {})
+        coords = item.get("geometry", {}).get("coordinates", ["", ""])
         
         title = props.get("title", "")
+        
+        # Extraer ID del número al inicio del título (ej: "193- Pza. La Ermita")
         station_id = props.get("id", "")
         station_name = title
 
-        # Si el título viene en formato "81-Tauromaquia", separar ID y Nombre
         if "-" in title:
             parts = title.split("-", 1)
-            if parts[0].isdigit():
-                station_id = parts[0]
+            if parts[0].strip().isdigit():
+                station_id = parts[0].strip()
                 station_name = parts[1].strip()
 
-        estado = str(props.get("estadoEstacion", "")).lower()
-        is_operational = "no-operativa" not in estado
+        # Determinar si está operativa según 'estado' o 'estadoEstacion'
+        estado = str(props.get("estado", "")).upper()
+        is_operational = (estado == "IN_SERVICE")
 
         rows.append({
             "timestamp": timestamp,
@@ -58,12 +74,9 @@ def fetch_and_append():
 
     df_new = pd.DataFrame(rows)
 
-    # Asegurar que la carpeta existe
     os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
-
-    # Anexar al CSV existente sin escribir cabeceras
     df_new.to_csv(CSV_PATH, mode='a', header=False, index=False)
-    print(f"[{timestamp}] Se han añadido {len(rows)} registros a {CSV_PATH}")
+    print(f"[{timestamp}] ¡Éxito! Se han añadido {len(rows)} registros a {CSV_PATH}")
 
 if __name__ == "__main__":
     fetch_and_append()
