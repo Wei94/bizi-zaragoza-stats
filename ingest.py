@@ -2,13 +2,13 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/estacion-bicicleta?rf=markdown&srsname=wgs84&rows=300"
 CSV_PATH = "output/bizi-stats.csv"
 
-# Definición explícita de columnas en el ámbito global
 COLUMNS = [
     'timestamp', 'dayOfWeek', 'timeSlot', 'stationId', 
     'stationName', 'bikesAvailable', 'slotsAvailable', 
@@ -16,7 +16,6 @@ COLUMNS = [
 ]
 
 def get_session_with_retries():
-    """Crea una sesión de requests con 3 reintentos automáticos."""
     session = requests.Session()
     retries = Retry(
         total=3,
@@ -52,8 +51,11 @@ def fetch_and_append():
         print("La API respondió pero 'features' está vacío.")
         return
     
-    now = datetime.utcnow()
-    timestamp = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Hora local de España (gestiona automáticamente CET / CEST)
+    tz_spain = ZoneInfo("Europe/Madrid")
+    now = datetime.now(tz_spain)
+    
+    timestamp = now.strftime("%Y-%m-%dT%H:%M:%S")
     time_slot = now.strftime("%H:%M")
     day_of_week = now.isoweekday()
 
@@ -92,21 +94,19 @@ def fetch_and_append():
 
     os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
 
-    # Cargar datos antiguos si el archivo existe y no está vacío
     if os.path.exists(CSV_PATH) and os.path.getsize(CSV_PATH) > 0:
         df_old = pd.read_csv(CSV_PATH, header=None, names=COLUMNS)
         df_combined = pd.concat([df_old, df_new], ignore_index=True)
     else:
         df_combined = df_new
 
-    # Filtrar manteniendo solo registros de los últimos 7 días
-    df_combined['dt_temp'] = pd.to_datetime(df_combined['timestamp'], format="%Y-%m-%dT%H:%M:%SZ", errors='coerce')
-    hace_7_dias = now - timedelta(days=7)
-    df_filtered = df_combined[df_combined['dt_temp'] >= hace_7_dias].drop(columns=['dt_temp'])
+    # Purga a 7 días considerando hora local
+    df_combined['dt_temp'] = pd.to_datetime(df_combined['timestamp'], errors='coerce')
+    hace_7_dias = (now - timedelta(days=7)).replace(tzinfo=None)
+    df_filtered = df_combined[df_combined['dt_temp'].dt.tz_localize(None) >= hace_7_dias].drop(columns=['dt_temp'])
 
-    # Sobrescribir el CSV con los datos limpios
     df_filtered.to_csv(CSV_PATH, mode='w', header=False, index=False)
-    print(f"[{timestamp}] ¡Éxito! CSV actualizado. Registros guardados (últimos 7 días): {len(df_filtered)}")
+    print(f"[{timestamp}] ¡Éxito! CSV actualizado en hora local. Registros totales: {len(df_filtered)}")
 
 if __name__ == "__main__":
     fetch_and_append()
