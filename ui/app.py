@@ -24,14 +24,13 @@ st.sidebar.header("🔍 Buscar Estación")
 FAVORITA_HABITUAL = "S. Juan Peña"
 estaciones_disponibles = sorted(df['stationName'].unique())
 
-# Encontrar si la estación habitual está en el dataset para seleccionarla por defecto
 index_defecto = 0
 for idx, nombre in enumerate(estaciones_disponibles):
     if FAVORITA_HABITUAL.lower() in nombre.lower():
         index_defecto = idx
         break
 
-# 2. Input de texto para filtrar la lista en tiempo real
+# 2. Input de texto para filtrar la lista
 busqueda = st.sidebar.text_input("Filtrar por texto (ej: Juan Peña, Delicias...)", "")
 
 if busqueda:
@@ -42,7 +41,7 @@ if busqueda:
 else:
     estaciones_filtradas = estaciones_disponibles
 
-# 3. Desplegable con las estaciones filtradas (o la favorita por defecto)
+# 3. Desplegable
 estacion_seleccionada = st.sidebar.selectbox(
     "Selecciona la estación:",
     options=estaciones_filtradas,
@@ -52,11 +51,10 @@ estacion_seleccionada = st.sidebar.selectbox(
 # --- CUERPO PRINCIPAL ---
 st.title(f"🚲 Estado en tiempo real: {estacion_seleccionada}")
 
-# Filtrar datos de la estación elegida
 df_estacion = df[df['stationName'] == estacion_seleccionada].sort_values('timestamp')
 
 if not df_estacion.empty:
-    # Métricas rápidas (última lectura)
+    # Métricas rápidas
     ultima_lectura = df_estacion.iloc[-1]
     col1, col2, col3 = st.columns(3)
     col1.metric("Bicis Disponibles", int(ultima_lectura['bikesAvailable']))
@@ -73,7 +71,47 @@ if not df_estacion.empty:
         labels={'timeSlot': 'Hora', 'bikesAvailable': 'Bicis disponibles'}
     )
     fig.update_traces(line_color='#e63946')
-    st.plotly_chart(fig, width='stretch')
+    st.plotly_chart(fig, use_container_width=True)
+
+    # MAPA DE UBICACIÓN
+    st.markdown("---")
+    st.subheader("📍 Ubicación de la Estación")
+
+    lat = ultima_lectura['latitude']
+    lon = ultima_lectura['longitude']
+
+    if pd.notna(lat) and pd.notna(lon) and str(lat).strip() != "" and str(lon).strip() != "":
+        df_mapa = pd.DataFrame([{
+            'lat': float(lat),
+            'lon': float(lon),
+            'estacion': estacion_seleccionada,
+            'bicis': int(ultima_lectura['bikesAvailable']),
+            'anclajes': int(ultima_lectura['slotsAvailable'])
+        }])
+
+        fig_map = px.scatter_mapbox(
+            df_mapa,
+            lat='lat',
+            lon='lon',
+            hover_name='estacion',
+            hover_data={'bicis': True, 'anclajes': True, 'lat': False, 'lon': False},
+            zoom=15,
+            height=350
+        )
+
+        fig_map.update_layout(
+            mapbox_style="carto-positron",
+            margin={"r": 0, "t": 0, "l": 0, "b": 0}
+        )
+
+        fig_map.update_traces(
+            marker=dict(size=18, color='#e63946')
+        )
+
+        st.plotly_chart(fig_map, use_container_width=True)
+    else:
+        st.warning("Esta estación no tiene coordenadas geográficas registradas.")
+
 else:
     st.info("Aún no hay lecturas registradas para esta parada.")
 
