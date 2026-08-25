@@ -213,14 +213,16 @@ if tab_seleccionada == "\U0001F4CD Estación y Plan B":
                     hover_name='nombre',
                     hover_data={'bicis': True, 'anclajes': True, 'tipo': False, 'size': False, 'lat': False, 'lon': False},
                     color_discrete_map={'Principal': '#e63946', 'Cercana': '#457b9d'},
-                    zoom=14,
                     height=400
                 )
                 fig_map.update_layout(
                     map_style="open-street-map",
+                    map_center={"lat": float(lat_curr), "lon": float(lon_curr)},
+                    map_zoom=14,
                     margin={"r": 0, "t": 0, "l": 0, "b": 0},
                     showlegend=False
                 )
+                st.plotly_chart(fig_map, use_container_width=True)
                 st.plotly_chart(fig_map, use_container_width=True)
         else:
             st.warning("No hay coordenadas válidas para esta estación.")
@@ -389,15 +391,18 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
         hover_data={'bikesAvailable': True, 'slotsAvailable': True, 'marker_size': False, 'latitude': False, 'longitude': False},
         color_continuous_scale=color_scale,
         size_max=15,
-        zoom=12,
         height=600,
         title=f"Distribución global de {modo_mapa.lower()} en Zaragoza"
     )
     
     fig_global.update_layout(
         map_style="open-street-map",
+        map_center={"lat": 41.65606, "lon": -0.87734},
+        map_zoom=12,
         margin={"r": 0, "t": 0, "l": 0, "b": 0}
     )
+    
+    st.plotly_chart(fig_global, use_container_width=True)
     
     st.plotly_chart(fig_global, use_container_width=True)
     
