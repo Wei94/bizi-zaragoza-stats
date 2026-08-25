@@ -100,13 +100,14 @@ def fetch_and_append():
     else:
         df_combined = df_new
 
-    # Purga a 7 días considerando hora local
-    df_combined['dt_temp'] = pd.to_datetime(df_combined['timestamp'], errors='coerce')
+    # Purga a 7 días en hora local
+    df_combined['dt_temp'] = pd.to_datetime(df_combined['timestamp'].astype(str).str.replace('Z', ''), errors='coerce')
     hace_7_dias = (now - timedelta(days=7)).replace(tzinfo=None)
-    df_filtered = df_combined[df_combined['dt_temp'].dt.tz_localize(None) >= hace_7_dias].drop(columns=['dt_temp'])
+    
+    df_filtered = df_combined[df_combined['dt_temp'] >= hace_7_dias].drop(columns=['dt_temp'])
 
     df_filtered.to_csv(CSV_PATH, mode='w', header=False, index=False)
-    print(f"[{timestamp}] ¡Éxito! CSV actualizado en hora local. Registros totales: {len(df_filtered)}")
+    print(f"[{timestamp}] ¡Éxito! CSV actualizado en hora local. Total registros: {len(df_filtered)}")
 
 if __name__ == "__main__":
     fetch_and_append()
