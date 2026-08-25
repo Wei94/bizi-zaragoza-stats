@@ -5,16 +5,22 @@ from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-# URL de la API de Bizi Zaragoza
 API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/estacion-bicicleta?rf=markdown&srsname=wgs84&rows=300"
 CSV_PATH = "output/bizi-stats.csv"
+
+# Definición explícita de columnas en el ámbito global
+COLUMNS = [
+    'timestamp', 'dayOfWeek', 'timeSlot', 'stationId', 
+    'stationName', 'bikesAvailable', 'slotsAvailable', 
+    'isOperational', 'longitude', 'latitude'
+]
 
 def get_session_with_retries():
     """Crea una sesión de requests con 3 reintentos automáticos."""
     session = requests.Session()
     retries = Retry(
         total=3,
-        backoff_factor=2,  # Espera 2s, 4s, 8s entre reintentos
+        backoff_factor=2,
         status_forcelist=[500, 502, 503, 504],
         raise_on_status=False
     )
@@ -33,17 +39,14 @@ def fetch_and_append():
     
     try:
         response = session.get(API_URL, headers=headers, timeout=45)
-        
         if response.status_code != 200:
             print(f"Error al consultar la API: Código HTTP {response.status_code}")
             return
-
         data = response.json()
     except requests.exceptions.RequestException as e:
         print(f"La API de Zaragoza no respondió a tiempo: {e}")
         return
 
-    # Extraer la lista de estaciones desde 'features' (GeoJSON estándar)
     features = data.get("features", [])
     if not features:
         print("La API respondió pero 'features' está vacío.")
@@ -60,8 +63,6 @@ def fetch_and_append():
         coords = item.get("geometry", {}).get("coordinates", ["", ""])
         
         title = props.get("title", "")
-        
-        # Extraer ID del número al inicio del título (ej: "193- Pza. La Ermita")
         station_id = props.get("id", "")
         station_name = title
 
@@ -71,7 +72,6 @@ def fetch_and_append():
                 station_id = parts[0].strip()
                 station_name = parts[1].strip()
 
-        # Determinar si está operativa según 'estado' o 'estadoEstacion'
         estado = str(props.get("estado", "")).upper()
         is_operational = (estado == "IN_SERVICE")
 
@@ -90,24 +90,23 @@ def fetch_and_append():
 
     df_new = pd.DataFrame(rows)
 
-    # --- LÓGICA DE LECTURA, COMBINACIÓN Y PURGA ---
     os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
 
-    # 1. Cargar datos antiguos si el archivo ya existe
+    # Cargar datos antiguos si el archivo existe y no está vacío
     if os.path.exists(CSV_PATH) and os.path.getsize(CSV_PATH) > 0:
         df_old = pd.read_csv(CSV_PATH, header=None, names=COLUMNS)
         df_combined = pd.concat([df_old, df_new], ignore_index=True)
     else:
         df_combined = df_new
 
-    # 2. Filtrar manteniendo solo registros delos últimos 7 días
+    # Filtrar manteniendo solo registros de los últimos 7 días
     df_combined['dt_temp'] = pd.to_datetime(df_combined['timestamp'], format="%Y-%m-%dT%H:%M:%SZ", errors='coerce')
     hace_7_dias = now - timedelta(days=7)
     df_filtered = df_combined[df_combined['dt_temp'] >= hace_7_dias].drop(columns=['dt_temp'])
 
-    # 3. Sobrescribir el CSV con los datos actualizados
+    # Sobrescribir el CSV con los datos limpios
     df_filtered.to_csv(CSV_PATH, mode='w', header=False, index=False)
-    print(f"[{timestamp}] ¡Éxito! CSV actualizado. Total registros acumulados (últimos 7 días): {len(df_filtered)}")
+    print(f"[{timestamp}] ¡Éxito! CSV actualizado. Registros guardados (últimos 7 días): {len(df_filtered)}")
 
 if __name__ == "__main__":
     fetch_and_append()
