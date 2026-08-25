@@ -27,7 +27,7 @@ def load_data():
         'stationName', 'bikesAvailable', 'slotsAvailable', 
         'isOperational', 'longitude', 'latitude'
     ]
-    df = pd.read_csv(RAW_CSV_URL, header=None, names=columnas, encoding='latin-1', on_bad_lines='skip')
+    df = pd.read_csv(RAW_CSV_URL, header=None, names=columnas, encoding='utf-8', on_bad_lines='skip')
     
     # Limpieza y conversión de tipos
     df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
