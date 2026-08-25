@@ -223,7 +223,6 @@ if tab_seleccionada == "\U0001F4CD Estación y Plan B":
                     showlegend=False
                 )
                 st.plotly_chart(fig_map, use_container_width=True)
-                st.plotly_chart(fig_map, use_container_width=True)
         else:
             st.warning("No hay coordenadas válidas para esta estación.")
 
@@ -401,8 +400,6 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
         map_zoom=12,
         margin={"r": 0, "t": 0, "l": 0, "b": 0}
     )
-    
-    st.plotly_chart(fig_global, use_container_width=True)
     
     st.plotly_chart(fig_global, use_container_width=True)
     
