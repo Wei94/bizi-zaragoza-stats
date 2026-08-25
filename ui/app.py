@@ -4,19 +4,19 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
-# Configuracion de la pagina
+# Configuración de la página
 st.set_page_config(page_title="Bizi Zaragoza Live & Analytics", layout="wide", page_icon="\U0001F6B2")
 
 RAW_CSV_URL = "https://raw.githubusercontent.com/Wei94/bizi-zaragoza-stats/refs/heads/main/output/bizi-stats.csv"
 
-# --- NOMBRES DE DIAS EN ESPANOL ---
+# --- NOMBRES DE DÍAS EN ESPAÑOL ---
 DIAS_SEMANA = {
     1: "Lunes",
     2: "Martes",
-    3: "Miercoles",
+    3: "Miércoles",
     4: "Jueves",
     5: "Viernes",
-    6: "Sabado",
+    6: "Sábado",
     7: "Domingo"
 }
 
@@ -27,10 +27,9 @@ def load_data():
         'stationName', 'bikesAvailable', 'slotsAvailable', 
         'isOperational', 'longitude', 'latitude'
     ]
-    # Se anade encoding latin-1 por si el CSV de origen tiene caracteres ISO de Espana
-    df = pd.read_csv(RAW_CSV_URL, header=None, names=columnas)
+    df = pd.read_csv(RAW_CSV_URL, header=None, names=columnas, encoding='latin-1', on_bad_lines='skip')
     
-    # Limpieza y conversion de tipos
+    # Limpieza y conversión de tipos
     df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
     df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
     df['bikesAvailable'] = pd.to_numeric(df['bikesAvailable'], errors='coerce').fillna(0).astype(int)
@@ -48,7 +47,7 @@ except Exception as e:
     st.error(f"Error al cargar los datos desde GitHub: {e}")
     st.stop()
 
-# --- FUNCION HAVERSINE PARA DISTANCIAS EN KM ---
+# --- FUNCIÓN HAVERSINE PARA DISTANCIAS EN KM ---
 def haversine_vectorized(lat1, lon1, lat2_vec, lon2_vec):
     R = 6371.0  # Radio de la Tierra en km
     lat1_rad = np.radians(lat1)
@@ -63,25 +62,25 @@ def haversine_vectorized(lat1, lon1, lat2_vec, lon2_vec):
     c = 2 * np.arcsin(np.sqrt(a))
     return R * c
 
-# --- BARRA LATERAL: Seleccion de vista y estacion principal ---
+# --- BARRA LATERAL: Selección de vista y estación principal ---
 st.sidebar.title("\U0001F6B2 Bizi Zaragoza")
 st.sidebar.markdown("---")
 
 tab_seleccionada = st.sidebar.radio(
     "Selecciona una funcionalidad:",
     [
-        "\U0001F4CD Estacion y Plan B",
-        "\U0001F52E Prediccion y Patrones",
+        "\U0001F4CD Estación y Plan B",
+        "\U0001F52E Predicción y Patrones",
         "\U00001F504 Comparador Origen / Destino",
         "\U0001F5FA Mapa Global Zaragoza"
     ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.header("\U00001F50D Estacion Principal")
+st.sidebar.header("\U00001F50D Estación Principal")
 
-# Configurar estacion favorita por defecto
-FAVORITA_HABITUAL = "S. Juan Pena"
+# Configurar estación favorita por defecto
+FAVORITA_HABITUAL = "S. Juan Peña"
 estaciones_disponibles = sorted(df['stationName'].dropna().unique())
 
 index_defecto = 0
@@ -90,7 +89,7 @@ for idx, nombre in enumerate(estaciones_disponibles):
         index_defecto = idx
         break
 
-busqueda = st.sidebar.text_input("Buscar estacion por nombre:", "")
+busqueda = st.sidebar.text_input("Buscar estación por nombre:", "")
 
 if busqueda:
     estaciones_filtradas = [e for e in estaciones_disponibles if busqueda.lower() in e.lower()]
@@ -101,7 +100,7 @@ else:
     estaciones_filtradas = estaciones_disponibles
 
 estacion_principal = st.sidebar.selectbox(
-    "Estacion seleccionada:",
+    "Estación seleccionada:",
     options=estaciones_filtradas,
     index=index_defecto if not busqueda and index_defecto < len(estaciones_filtradas) else 0
 )
@@ -110,58 +109,56 @@ if st.sidebar.button("\U00001F504 Recargar Datos"):
     st.cache_data.clear()
     st.rerun()
 
-# Dataframe de la estacion seleccionada
+# Dataframe de la estación seleccionada
 df_estacion = df[df['stationName'] == estacion_principal].sort_values('timestamp')
 
 # ==============================================================================
-# TAB 1: ESTACION Y PLAN B (ALTERNATIVAS CERCANAS)
+# TAB 1: ESTACIÓN Y PLAN B (ALTERNATIVAS CERCANAS)
 # ==============================================================================
-if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
+if tab_seleccionada == "\U0001F4CD Estación y Plan B":
     st.title(f"\U0001F4CD Estado en Tiempo Real: {estacion_principal}")
     
     if df_estacion.empty:
-        st.info("No hay datos disponibles para esta estacion.")
+        st.info("No hay datos disponibles para esta estación.")
     else:
         ultima_lectura = df_estacion.iloc[-1]
         
-        # Metricas principales
+        # Métricas principales
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("\U0001F6B2 Bicis Disponibles", int(ultima_lectura['bikesAvailable']))
         col2.metric("\U0000F513 Anclajes Libres", int(ultima_lectura['slotsAvailable']))
         
         capacidad_total = int(ultima_lectura['bikesAvailable']) + int(ultima_lectura['slotsAvailable'])
         col3.metric("\U0000F4C8 Capacidad Total", capacidad_total)
-        col4.metric("\U0000F552 Ultima Actualizacion", ultima_lectura['timeSlot'])
+        col4.metric("\U0000F552 Última Actualización", ultima_lectura['timeSlot'])
         
         st.markdown("---")
         
-        # Grafico de evolucion de hoy / reciente
-        st.subheader("\U0000F4C8 Evolucion de Disponibilidad")
+        # Gráfico de evolución de hoy / reciente
+        st.subheader("\U0000F4C8 Evolución de Disponibilidad")
         fig_line = px.line(
             df_estacion,
             x='timeSlot',
             y=['bikesAvailable', 'slotsAvailable'],
-            labels={'value': 'Cantidad', 'timeSlot': 'Hora', 'variable': 'Metrica'},
-            title=f"Historico reciente en {estacion_principal}",
+            labels={'value': 'Cantidad', 'timeSlot': 'Hora', 'variable': 'Métrica'},
+            title=f"Histórico reciente en {estacion_principal}",
             markers=True,
             color_discrete_map={'bikesAvailable': '#e63946', 'slotsAvailable': '#457b9d'}
         )
         fig_line.for_each_trace(lambda t: t.update(name='Bicis' if t.name == 'bikesAvailable' else 'Anclajes'))
         st.plotly_chart(fig_line, use_container_width=True)
         
-        # Calculo de Estaciones Cercanas (Plan B)
+        # Cálculo de Estaciones Cercanas (Plan B)
         st.markdown("---")
-        st.subheader("\U0001F6B6 Estaciones Cercanas (Plan B en caso de saturacion)")
+        st.subheader("\U0001F6B6 Estaciones Cercanas (Plan B en caso de saturación)")
         
         lat_curr = ultima_lectura['latitude']
         lon_curr = ultima_lectura['longitude']
         
         if pd.notna(lat_curr) and pd.notna(lon_curr) and lat_curr != 0:
-            # Obtener el ultimo estado de TODAS las estaciones
             df_latest_all = df.sort_values('timestamp').groupby('stationName').last().reset_index()
             df_latest_all = df_latest_all[df_latest_all['stationName'] != estacion_principal].copy()
             
-            # Calcular distancias
             df_latest_all['distancia_km'] = haversine_vectorized(
                 lat_curr, lon_curr, 
                 df_latest_all['latitude'].values, 
@@ -169,7 +166,6 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
             )
             df_latest_all['distancia_m'] = (df_latest_all['distancia_km'] * 1000).round().astype(int)
             
-            # Filtrar las 3 mas cercanas
             cercanas = df_latest_all.sort_values('distancia_m').head(3)
             
             col_map, col_list = st.columns([2, 1])
@@ -182,7 +178,6 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                     st.markdown("---")
             
             with col_map:
-                # Construcción segura del DataFrame para el mapa
                 mapa_data = [
                     {
                         'lat': float(lat_curr),
@@ -208,7 +203,7 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                 
                 df_mapa = pd.DataFrame(mapa_data)
                 
-                # Renderizado compatible con Plotly en servidor
+                # Nueva sintaxis con scatter_map y map_style
                 fig_map = px.scatter_map(
                     df_mapa,
                     lat='lat',
@@ -221,7 +216,6 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                     zoom=14,
                     height=400
                 )
-                
                 fig_map.update_layout(
                     map_style="open-street-map",
                     margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -229,22 +223,22 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                 )
                 st.plotly_chart(fig_map, use_container_width=True)
         else:
-            st.warning("No hay coordenadas validas para esta estacion.")
+            st.warning("No hay coordenadas válidas para esta estación.")
 
 # ==============================================================================
-# TAB 2: PREDICCION Y PATRONES DE COMMUTE
+# TAB 2: PREDICCIÓN Y PATRONES DE COMMUTE
 # ==============================================================================
-elif tab_seleccionada == "\U0001F52E Prediccion y Patrones":
-    st.title(f"\U0001F52E Analisis Predictivo y Patrones: {estacion_principal}")
-    st.write("Analiza la disponibilidad historica segun el dia de la semana y la franja horaria para planificar tu trayecto con antelacion.")
+elif tab_seleccionada == "\U0001F52E Predicción y Patrones":
+    st.title(f"\U0001F52E Análisis Predictivo y Patrones: {estacion_principal}")
+    st.write("Analiza la disponibilidad histórica según el día de la semana y la franja horaria para planificar tu trayecto con antelación.")
     
     if df_estacion.empty:
-        st.info("No hay suficiente historico registrado para esta estacion.")
+        st.info("No hay suficiente histórico registrado para esta estación.")
     else:
         col_filtro1, col_filtro2 = st.columns(2)
         
         with col_filtro1:
-            dia_sel = st.selectbox("Selecciona un dia de la semana:", list(DIAS_SEMANA.values()), index=0)
+            dia_sel = st.selectbox("Selecciona un día de la semana:", list(DIAS_SEMANA.values()), index=0)
         
         with col_filtro2:
             hora_sel = st.slider("Selecciona la hora estimada de tu trayecto (HH:00):", 0, 23, 8)
@@ -254,10 +248,10 @@ elif tab_seleccionada == "\U0001F52E Prediccion y Patrones":
         df_hora = df_dia[df_dia['hour'] == hora_str]
         
         st.markdown("---")
-        st.subheader(f"\U0000F4C8 Diagnostico para los {dia_sel}s a las {hora_str}:00h")
+        st.subheader(f"\U0000F4C8 Diagnóstico para los {dia_sel}s a las {hora_str}:00h")
         
         if df_hora.empty:
-            st.warning("Aun no tenemos suficientes datos registrados para esa franja horaria especifica.")
+            st.warning("Aún no tenemos suficientes datos registrados para esa franja horaria específica.")
         else:
             promedio_bicis = df_hora['bikesAvailable'].mean()
             promedio_anclajes = df_hora['slotsAvailable'].mean()
@@ -267,7 +261,7 @@ elif tab_seleccionada == "\U0001F52E Prediccion y Patrones":
             col_m2.metric("Promedio de Anclajes Libres", f"{promedio_anclajes:.1f}")
             
             if promedio_bicis < 1.5:
-                riesgo_txt = "RIESGO ALTO (Suele estar vacia)"
+                riesgo_txt = "RIESGO ALTO (Suele estar vacía)"
             elif promedio_bicis < 3.5:
                 riesgo_txt = "RIESGO MEDIO (Pocas bicis libres)"
             else:
@@ -286,10 +280,10 @@ elif tab_seleccionada == "\U0001F52E Prediccion y Patrones":
                 x='hour',
                 y='bikesAvailable',
                 title=f"Promedio de bicis disponibles hora a hora en {estacion_principal} ({dia_sel}s)",
-                labels={'hour': 'Hora del dia', 'bikesAvailable': 'Promedio Bicis'},
+                labels={'hour': 'Hora del día', 'bikesAvailable': 'Promedio Bicis'},
                 color_discrete_sequence=['#e63946']
             )
-            fig_bar.add_hline(y=2, line_dash="dash", line_color="orange", annotation_text="Umbral critico (2 bicis)")
+            fig_bar.add_hline(y=2, line_dash="dash", line_color="orange", annotation_text="Umbral crítico (2 bicis)")
             st.plotly_chart(fig_bar, use_container_width=True)
 
 # ==============================================================================
@@ -297,16 +291,16 @@ elif tab_seleccionada == "\U0001F52E Prediccion y Patrones":
 # ==============================================================================
 elif tab_seleccionada == "\U00001F504 Comparador Origen / Destino":
     st.title("\U00001F504 Comparador de Trayecto (Origen y Destino)")
-    st.write("Verifica simultaneamente si tendras **bicis al salir** de tu origen y **anclajes libres al llegar** a tu destino.")
+    st.write("Verifica simultáneamente si tendrás **bicis al salir** de tu origen y **anclajes libres al llegar** a tu destino.")
     
     col_orig, col_dest = st.columns(2)
     
     with col_orig:
-        st.subheader("Estacion Origen")
+        st.subheader("Estación Origen")
         estacion_origen = st.selectbox("Selecciona origen:", estaciones_disponibles, index=index_defecto, key="origen_sel")
     
     with col_dest:
-        st.subheader("Estacion Destino")
+        st.subheader("Estación Destino")
         index_dest = (index_defecto + 5) % len(estaciones_disponibles)
         estacion_destino = st.selectbox("Selecciona destino:", estaciones_disponibles, index=index_dest, key="destino_sel")
     
@@ -332,12 +326,12 @@ elif tab_seleccionada == "\U00001F504 Comparador Origen / Destino":
             st.info(f"**Destino:** {estacion_destino}")
             st.metric("\U0000F513 Anclajes para aparcar", int(ult_dest['slotsAvailable']))
             if ult_dest['slotsAvailable'] == 0:
-                st.error("Estacion destino LLENA. Busca un Plan B cercano.")
+                st.error("Estación destino LLENA. Busca un Plan B cercano.")
             else:
                 st.success("Hay hueco para aparcar al llegar.")
                 
         st.markdown("---")
-        st.subheader("\U0000F4C8 Grafico Comparativo en Tiempo Real")
+        st.subheader("\U0000F4C8 Gráfico Comparativo en Tiempo Real")
         
         df_origen_sub = df_origen[['timeSlot', 'bikesAvailable']].rename(columns={'bikesAvailable': f'Bicis en Origen ({estacion_origen})'})
         df_destino_sub = df_destino[['timeSlot', 'slotsAvailable']].rename(columns={'slotsAvailable': f'Anclajes en Destino ({estacion_destino})'})
@@ -349,7 +343,7 @@ elif tab_seleccionada == "\U00001F504 Comparador Origen / Destino":
                 merged_route,
                 x='timeSlot',
                 y=[f'Bicis en Origen ({estacion_origen})', f'Anclajes en Destino ({estacion_destino})'],
-                title="Compatibilidad del trayecto durante el dia",
+                title="Compatibilidad del trayecto durante el día",
                 markers=True,
                 color_discrete_map={
                     f'Bicis en Origen ({estacion_origen})': '#e63946',
@@ -365,10 +359,8 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
     st.title("\U0001F5FA Mapa Global de la Red Bizi Zaragoza")
     st.write("Vista completa en tiempo real de las estaciones de la ciudad.")
     
-    # Obtener el último estado de cada estación
     df_latest = df.sort_values('timestamp').groupby('stationName').last().reset_index()
     
-    # Limpieza estricta de coordenadas y valores numéricos para evitar fallos en Mapbox
     df_latest = df_latest[
         pd.notna(df_latest['latitude']) & 
         pd.notna(df_latest['longitude']) & 
@@ -384,9 +376,9 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
     col_var = 'bikesAvailable' if modo_mapa == "Bicis Disponibles" else 'slotsAvailable'
     color_scale = "Reds" if modo_mapa == "Bicis Disponibles" else "Blues"
     
-    # Creación de una columna explícita de tamaño evitando valores <= 0
     df_latest['marker_size'] = df_latest[col_var].apply(lambda x: max(int(x), 3))
     
+    # Nueva sintaxis con scatter_map y map_style
     fig_global = px.scatter_map(
         df_latest,
         lat='latitude',
