@@ -182,43 +182,50 @@ if tab_seleccionada == "\U0001F4CD Estacion y Plan B":
                     st.markdown("---")
             
             with col_map:
-                mapa_data = []
-                mapa_data.append({
-                    'lat': lat_curr,
-                    'lon': lon_curr,
-                    'nombre': f"PRINCIPAL: {estacion_principal}",
-                    'tipo': 'Principal',
-                    'bicis': int(ultima_lectura['bikesAvailable']),
-                    'anclajes': int(ultima_lectura['slotsAvailable'])
-                })
+                # Construcción segura del DataFrame para el mapa
+                mapa_data = [
+                    {
+                        'lat': float(lat_curr),
+                        'lon': float(lon_curr),
+                        'nombre': f"PRINCIPAL: {estacion_principal}",
+                        'tipo': 'Principal',
+                        'size': 20,
+                        'bicis': int(ultima_lectura['bikesAvailable']),
+                        'anclajes': int(ultima_lectura['slotsAvailable'])
+                    }
+                ]
+                
                 for _, row in cercanas.iterrows():
                     mapa_data.append({
-                        'lat': row['latitude'],
-                        'lon': row['longitude'],
-                        'nombre': f"Plan B: {row['stationName']} ({row['distancia_m']}m)",
+                        'lat': float(row['latitude']),
+                        'lon': float(row['longitude']),
+                        'nombre': f"Plan B: {row['stationName']} ({int(row['distancia_m'])}m)",
                         'tipo': 'Cercana',
+                        'size': 12,
                         'bicis': int(row['bikesAvailable']),
                         'anclajes': int(row['slotsAvailable'])
                     })
                 
                 df_mapa = pd.DataFrame(mapa_data)
                 
+                # Renderizado compatible con Plotly en servidor
                 fig_map = px.scatter_mapbox(
                     df_mapa,
                     lat='lat',
                     lon='lon',
                     color='tipo',
-                    size=[22 if t == 'Principal' else 14 for t in df_mapa['tipo']],
+                    size='size',
                     hover_name='nombre',
-                    hover_data={'bicis': True, 'anclajes': True, 'tipo': False, 'lat': False, 'lon': False},
+                    hover_data={'bicis': True, 'anclajes': True, 'tipo': False, 'size': False, 'lat': False, 'lon': False},
                     color_discrete_map={'Principal': '#e63946', 'Cercana': '#457b9d'},
-                    zoom=15,
+                    zoom=14,
                     height=400
                 )
+                
                 fig_map.update_layout(
-                    mapbox_style="carto-positron",
+                    mapbox_style="open-street-map",  # Estilo 100% libre sin token de Mapbox
                     margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                    legend_title_text=""
+                    showlegend=False
                 )
                 st.plotly_chart(fig_map, use_container_width=True)
         else:
@@ -358,46 +365,54 @@ elif tab_seleccionada == "\U0001F5FA Mapa Global Zaragoza":
     st.title("\U0001F5FA Mapa Global de la Red Bizi Zaragoza")
     st.write("Vista completa en tiempo real de las estaciones de la ciudad.")
     
+    # Obtener el último estado de cada estación
     df_latest = df.sort_values('timestamp').groupby('stationName').last().reset_index()
-    df_latest = df_latest[pd.notna(df_latest['latitude']) & (df_latest['latitude'] != 0)]
     
-    df_latest['capacidad'] = df_latest['bikesAvailable'] + df_latest['slotsAvailable']
-    df_latest['porcentaje_bicis'] = np.where(
-        df_latest['capacidad'] > 0, 
-        (df_latest['bikesAvailable'] / df_latest['capacidad']) * 100, 
-        0
-    )
+    # Limpieza estricta de coordenadas y valores numéricos para evitar fallos en Mapbox
+    df_latest = df_latest[
+        pd.notna(df_latest['latitude']) & 
+        pd.notna(df_latest['longitude']) & 
+        (df_latest['latitude'] != 0) & 
+        (df_latest['longitude'] != 0)
+    ].copy()
+    
+    df_latest['bikesAvailable'] = df_latest['bikesAvailable'].fillna(0).astype(int)
+    df_latest['slotsAvailable'] = df_latest['slotsAvailable'].fillna(0).astype(int)
     
     modo_mapa = st.radio("Mostrar en el mapa por:", ["Bicis Disponibles", "Anclajes Libres"], horizontal=True)
     
     col_var = 'bikesAvailable' if modo_mapa == "Bicis Disponibles" else 'slotsAvailable'
     color_scale = "Reds" if modo_mapa == "Bicis Disponibles" else "Blues"
     
+    # Creación de una columna explícita de tamaño evitando valores <= 0
+    df_latest['marker_size'] = df_latest[col_var].apply(lambda x: max(int(x), 3))
+    
     fig_global = px.scatter_mapbox(
         df_latest,
         lat='latitude',
         lon='longitude',
-        size=col_var,
+        size='marker_size',
         color=col_var,
         hover_name='stationName',
-        hover_data={'bikesAvailable': True, 'slotsAvailable': True, 'latitude': False, 'longitude': False},
+        hover_data={'bikesAvailable': True, 'slotsAvailable': True, 'marker_size': False, 'latitude': False, 'longitude': False},
         color_continuous_scale=color_scale,
-        size_max=18,
+        size_max=15,
         zoom=12,
         height=600,
-        title=f"Distribucion global de {modo_mapa.lower()} en Zaragoza"
+        title=f"Distribución global de {modo_mapa.lower()} en Zaragoza"
     )
     
+    # Cambio a estilo open-street-map sin necesidad de token de Mapbox
     fig_global.update_layout(
-        mapbox_style="carto-positron",
+        mapbox_style="open-street-map",
         margin={"r": 0, "t": 0, "l": 0, "b": 0}
     )
     
     st.plotly_chart(fig_global, use_container_width=True)
     
     st.markdown("---")
-    st.subheader("\U0000F4C8 Metricas Globales del Sistema")
+    st.subheader("\U0000F4C8 Métricas Globales del Sistema")
     c_g1, c_g2, c_g3 = st.columns(3)
     c_g1.metric("Estaciones Operativas", len(df_latest))
-    c_g2.metric("Total Bicis en Circulacion/Estaciones", int(df_latest['bikesAvailable'].sum()))
+    c_g2.metric("Total Bicis en Circulación/Estaciones", int(df_latest['bikesAvailable'].sum()))
     c_g3.metric("Total Anclajes Libres en la Red", int(df_latest['slotsAvailable'].sum()))
