@@ -2,6 +2,8 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 # URL de la API de Bizi Zaragoza
 API_URL = "https://www.zaragoza.es/sede/servicio/urbanismo-infraestructuras/estacion-bicicleta?rf=markdown&srsname=wgs84&rows=300"
