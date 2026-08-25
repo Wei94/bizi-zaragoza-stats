@@ -1,7 +1,7 @@
 import os
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
@@ -90,9 +90,24 @@ def fetch_and_append():
 
     df_new = pd.DataFrame(rows)
 
+    # --- LÓGICA DE LECTURA, COMBINACIÓN Y PURGA ---
     os.makedirs(os.path.dirname(CSV_PATH), exist_ok=True)
-    df_new.to_csv(CSV_PATH, mode='a', header=False, index=False)
-    print(f"[{timestamp}] ¡Éxito! Se han añadido {len(rows)} registros a {CSV_PATH}")
+
+    # 1. Cargar datos antiguos si el archivo ya existe
+    if os.path.exists(CSV_PATH) and os.path.getsize(CSV_PATH) > 0:
+        df_old = pd.read_csv(CSV_PATH, header=None, names=COLUMNS)
+        df_combined = pd.concat([df_old, df_new], ignore_index=True)
+    else:
+        df_combined = df_new
+
+    # 2. Filtrar manteniendo solo registros delos últimos 7 días
+    df_combined['dt_temp'] = pd.to_datetime(df_combined['timestamp'], format="%Y-%m-%dT%H:%M:%SZ", errors='coerce')
+    hace_7_dias = now - timedelta(days=7)
+    df_filtered = df_combined[df_combined['dt_temp'] >= hace_7_dias].drop(columns=['dt_temp'])
+
+    # 3. Sobrescribir el CSV con los datos actualizados
+    df_filtered.to_csv(CSV_PATH, mode='w', header=False, index=False)
+    print(f"[{timestamp}] ¡Éxito! CSV actualizado. Total registros acumulados (últimos 7 días): {len(df_filtered)}")
 
 if __name__ == "__main__":
     fetch_and_append()
