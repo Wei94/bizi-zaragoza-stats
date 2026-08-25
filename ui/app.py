@@ -20,14 +20,15 @@ DIAS_SEMANA = {
     7: "Domingo"
 }
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def load_data():
     columnas = [
         'timestamp', 'dayOfWeek', 'timeSlot', 'stationId', 
         'stationName', 'bikesAvailable', 'slotsAvailable', 
         'isOperational', 'longitude', 'latitude'
     ]
-    df = pd.read_csv(RAW_CSV_URL, header=None, names=columnas, encoding='utf-8', on_bad_lines='skip')
+    fresh_url = f"{RAW_CSV_URL}?v={int(time.time())}"
+    df = pd.read_csv(fresh_url, header=None, names=columnas, encoding='utf-8', on_bad_lines='skip')
     
     # Limpieza y conversión de tipos
     df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
